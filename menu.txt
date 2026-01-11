@@ -1,0 +1,5 @@
+1:Pieróg z mięsem:5.50:mięso,cebula,ciasto
+2:Zupa grzybowa:4.00:grzyby,śmietana,ziemniaki
+3:Schabowy:12.00:schab,panierka,ziemniaki
+4:Placki ziemniaczane:8.50:ziemniaki,cebula,śmietana
+5:Piernik:3.00:mąka,miód,przyprawy
