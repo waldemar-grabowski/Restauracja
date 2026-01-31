@@ -1,9 +1,17 @@
 #include <iostream>
-#include <ncurses.h>
 #include <string>
 #include <stdio.h>
+#include <cstring>
 
 using namespace std;
+
+#ifdef _WIN32
+#define NO_NCURSES
+#endif
+
+#ifndef NO_NCURSES
+#include <ncurses.h>
+#endif
 
 #define MAX_DAN 10
 
@@ -38,6 +46,15 @@ void load_menu(const char* plik) {
     fclose(f);
 }
 
+int welcome_screen();
+string delivery();
+int table();
+int take_order();
+void edit_order();
+void handle_order_choice(int choice);
+
+#ifndef NO_NCURSES
+// ===== NCURSES VERSION =====
 int welcome_screen(){
     int h = 10, w = 50;
     int starty = (LINES - h) / 2; 
@@ -142,7 +159,6 @@ void edit_order() {
     noecho();
     
     if (opcja == 1) {
-        // proste cofanie - odejmij cenę ostatniego z menu
         if (liczba_dan > 0) {
             suma_rachunku -= menu[liczba_dan - 1].cena;
             mvwprintw(win, 11, 2, "Usunieto ostatnie!");
@@ -176,10 +192,97 @@ void handle_order_choice(int choice) {
     }
 }
 
+#else
+// ===== CONSOLE FALLBACK VERSION (Windows) =====
+int welcome_screen(){
+    printf("\n=== Karczma 'Pod Zlamanym Toporem' ===\n");
+    printf("Adres: Trakt Krolewski 7\n");
+    printf("Wlasciciel: Brodaty Krasnolud\n\n");
+    printf("1: zamowic na miejscu\n");
+    printf("2: zamowic na wynos\n\n");
+    printf("Twoj wybor (1/2): ");
+    int d = 0; 
+    scanf("%d", &d);
+    getchar(); // consume newline
+    return d;
+}
+
+string delivery(){
+    char buf[200] = {0};
+    printf("Prosze podac swoj adres: ");
+    fgets(buf, sizeof(buf), stdin);
+    string s(buf);
+    if (!s.empty() && s.back() == '\n') s.pop_back();
+    if (!s.empty() && s.back() == '\r') s.pop_back();
+    return s;
+}
+
+int table(){
+    printf("Prosze podac numer stolika: ");
+    int t = 0; 
+    scanf("%d", &t);
+    getchar(); // consume newline
+    return t;
+}
+
+int take_order() {
+    printf("\n=== MENU KARCZMY ===\n");
+    for (int i = 0; i < liczba_dan; i++) {
+        printf("%d) %s (%.2f zl)\n", menu[i].id, menu[i].nazwa, menu[i].cena);
+    }
+    printf("9) Edytuj  0) Dalej (Suma: %.2f zl)\n\n", suma_rachunku);
+    printf("Wybor: ");
+    int meal = 0; 
+    scanf("%d", &meal);
+    getchar(); // consume newline
+    return meal;
+}
+
+void edit_order() {
+    printf("\n=== EDYCJA ZAMOWIENIA ===\n");
+    printf("Aktualna suma: %.2f zl\n", suma_rachunku);
+    printf("1) Usun ostatnie danie\n");
+    printf("2) Zmien stolik (jezeli na miejscu)\n");
+    printf("3) Wyczysc zamowienie\n");
+    printf("0) Wroc do menu\n\n");
+    printf("Wybierz (0-3): ");
+    int opcja = 0; 
+    scanf("%d", &opcja);
+    getchar();
+    
+    if (opcja == 1) {
+        if (liczba_dan > 0) suma_rachunku -= menu[liczba_dan - 1].cena;
+        printf("Usunieto ostatnie!\n");
+    } else if (opcja == 2) {
+        stolik = table();
+        printf("Nowy stolik zapisany!\n");
+    } else if (opcja == 3) {
+        suma_rachunku = 0.0;
+        printf("Wyczyszczono wszystko!\n");
+    }
+    printf("Nacisnij Enter...\n");
+    getchar();
+}
+
+void handle_order_choice(int choice) {
+    for (int i = 0; i < liczba_dan; i++) {
+        if (menu[i].id == choice) {
+            suma_rachunku += menu[i].cena;
+            return;
+        }
+    }
+    if (choice == 9) {
+        edit_order();
+    }
+}
+#endif
+
 int main() {
+#ifndef NO_NCURSES
     initscr();
     cbreak();
     noecho();
+#endif
 
     load_menu("menu.txt");
 
@@ -198,16 +301,18 @@ int main() {
         handle_order_choice(meal);
     } while (meal != 0);
 
+#ifndef NO_NCURSES
     endwin();
+#endif
     
-    printf("=== RACHUNEK ===\n");
+    printf("\n=== RACHUNEK ===\n");
     printf("Suma: %.2f zl\n", suma_rachunku);
     if (wybor == 2) {
         printf("Dostawa na: %s\n", adres.c_str());
     } else {
         printf("Stolik nr: %d\n", stolik);
     }
-    printf("Nacisnij Enter...");
+    printf("Nacisnij Enter...\n");
     getchar();
     
     return 0;
