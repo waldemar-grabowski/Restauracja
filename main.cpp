@@ -1,20 +1,21 @@
-#include <iostream>
-#include <string>
-#include <stdio.h>
-#include <cstring>
+/*
+    Karczma "Pod Zlamanym Toporem" - System Zamowien
+    Projekt na studia - 1 semestr
+*/
 
-using namespace std;
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
-#define NO_NCURSES
+    #include <windows.h>
 #endif
 
-#ifndef NO_NCURSES
-#include <ncurses.h>
-#endif
+#define MAKS_DAN 20
+#define MAKS_ZAMOWIEN 50
 
-#define MAX_DAN 10
-
+// Struktura dania w menu
 struct Danie {
     int id;
     char nazwa[50];
@@ -22,297 +23,514 @@ struct Danie {
     char skladniki[100];
 };
 
-struct Danie menu[MAX_DAN];
-int liczba_dan = 0;
-double suma_rachunku = 0.0;
-int stolik = 0;  // globalny dla edycji
+// Struktura pozycji w zamowieniu
+struct Pozycja {
+    int id_dania;
+    char nazwa[50];
+    double cena;
+    int ilosc;
+};
 
-void load_menu(const char* plik) {
-    FILE* f = fopen(plik, "r");
-    if (!f) {
-        printf("Blad otwarcia %s!\n", plik);
+// Zmienne globalne
+struct Danie menu[MAKS_DAN];
+struct Pozycja zamowienie[MAKS_ZAMOWIEN];
+int liczba_dan = 0;
+int liczba_pozycji = 0;
+double suma_rachunku = 0.0;
+
+// Dane klienta
+char imie_klienta[50];
+int typ_zamowienia = 0;  // 1 = na miejscu, 2 = dowoz
+int numer_stolika = 0;
+char adres_dostawy[100];
+int godzina_dostawy = 0;
+int minuta_dostawy = 0;
+
+// Godziny otwarcia karczmy
+const int GODZINA_OTWARCIA = 10;
+const int GODZINA_ZAMKNIECIA = 22;
+
+#ifdef _WIN32
+void ustawKonsole() {
+    SetConsoleCP(CP_UTF8);
+    SetConsoleOutputCP(CP_UTF8);
+}
+#endif
+
+// Funkcja do czyszczenia bufora wejscia
+void czyscBufor() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+// Funkcja do wczytania liczby calkowitej z kontrola bledow
+int wczytajLiczbe(int min, int max) {
+    int liczba;
+    int wynik;
+    
+    while (1) {
+        wynik = scanf("%d", &liczba);
+        czyscBufor();
+        
+        if (wynik != 1) {
+            printf("Blad! Podaj liczbe: ");
+            continue;
+        }
+        
+        if (liczba < min || liczba > max) {
+            printf("Blad! Podaj liczbe od %d do %d: ", min, max);
+            continue;
+        }
+        
+        return liczba;
+    }
+}
+
+// Wczytanie menu z pliku
+int wczytajMenu(const char* nazwa_pliku) {
+    FILE* plik = fopen(nazwa_pliku, "r");
+    
+    if (plik == NULL) {
+        printf("BLAD: Nie mozna otworzyc pliku %s!\n", nazwa_pliku);
+        return 0;
+    }
+    
+    liczba_dan = 0;
+    char linia[256];
+    
+    while (fgets(linia, sizeof(linia), plik) != NULL && liczba_dan < MAKS_DAN) {
+        // Format: ID:Nazwa:Cena:Skladniki
+        int wynik = sscanf(linia, "%d:%49[^:]:%lf:%99[^\n]",
+            &menu[liczba_dan].id,
+            menu[liczba_dan].nazwa,
+            &menu[liczba_dan].cena,
+            menu[liczba_dan].skladniki);
+        
+        if (wynik == 4) {
+            liczba_dan++;
+        }
+    }
+    
+    fclose(plik);
+    
+    if (liczba_dan == 0) {
+        printf("BLAD: Plik menu jest pusty lub ma zly format!\n");
+        return 0;
+    }
+    
+    return 1;
+}
+
+// Wyswietlenie danych restauracji
+void wyswietlDaneRestauracji() {
+    printf("\n");
+    printf("╔════════════════════════════════════════════════════════════╗\n");
+    printf("║     KARCZMA 'POD ZLAMANYM TOPOREM'                        ║\n");
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    printf("║  Adres:      Trakt Krolewski 7, Miasto Smocza Skala       ║\n");
+    printf("║  Wlasciciel: Grumli Brodaty Krasnolud                     ║\n");
+    printf("║  Godziny:    10:00 - 22:00                                ║\n");
+    printf("║  Specjalnosc: Kuchnia krasnoludzka i elficka              ║\n");
+    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("\n");
+}
+
+// Pobranie imienia klienta
+void pobierzImie() {
+    printf("Podaj swoje imie: ");
+    fgets(imie_klienta, sizeof(imie_klienta), stdin);
+    
+    // Usun znak nowej linii
+    size_t len = strlen(imie_klienta);
+    if (len > 0 && imie_klienta[len-1] == '\n') {
+        imie_klienta[len-1] = '\0';
+    }
+    
+    // Sprawdz czy nie puste
+    if (strlen(imie_klienta) == 0) {
+        strcpy(imie_klienta, "Nieznajomy");
+    }
+    
+    printf("\nWitaj, %s! Cieszymy sie, ze odwiedzasz nasza karczmę!\n\n", imie_klienta);
+}
+
+// Wybor typu zamowienia
+void wybierzTypZamowienia() {
+    printf("Jak chcesz zlozyc zamowienie?\n");
+    printf("1 - Na miejscu (w karczmie)\n");
+    printf("2 - Dowoz (do domu)\n");
+    printf("0 - Wyjscie z aplikacji\n");
+    printf("\nTwoj wybor: ");
+    
+    typ_zamowienia = wczytajLiczbe(0, 2);
+    
+    if (typ_zamowienia == 0) {
+        printf("\nDo zobaczenia nastepnym razem!\n");
+        exit(0);
+    }
+}
+
+// Pobranie numeru stolika
+void pobierzStolik() {
+    printf("\nDostepne stoliki: 1-15\n");
+    printf("Podaj numer stolika: ");
+    numer_stolika = wczytajLiczbe(1, 15);
+    printf("Stolik nr %d zostal zarezerwowany dla Ciebie.\n", numer_stolika);
+}
+
+// Pobranie adresu i godziny dostawy
+void pobierzDaneDostawy() {
+    printf("\nPodaj adres dostawy: ");
+    fgets(adres_dostawy, sizeof(adres_dostawy), stdin);
+    
+    size_t len = strlen(adres_dostawy);
+    if (len > 0 && adres_dostawy[len-1] == '\n') {
+        adres_dostawy[len-1] = '\0';
+    }
+    
+    if (strlen(adres_dostawy) == 0) {
+        printf("BLAD: Adres nie moze byc pusty!\n");
+        pobierzDaneDostawy();
         return;
     }
-
-    liczba_dan = 0;
-    while (liczba_dan < MAX_DAN && 
-        fscanf(f, "%d:%49[^:]:%lf:%99[^\n]", 
-        &menu[liczba_dan].id,
-        menu[liczba_dan].nazwa,
-        &menu[liczba_dan].cena,
-        menu[liczba_dan].skladniki) == 4) {
-        liczba_dan++;
-    }
-    fclose(f);
-}
-
-int welcome_screen();
-string delivery();
-int table();
-int take_order();
-void edit_order();
-void handle_order_choice(int choice);
-
-#ifndef NO_NCURSES
-// ===== NCURSES VERSION =====
-int welcome_screen(){
-    int h = 10, w = 50;
-    int starty = (LINES - h) / 2; 
-    int startx = (COLS  - w) / 2;
-
-    WINDOW *win = newwin(h, w, starty, startx);
-    box(win, 0, 0);
-    mvwprintw(win, 1, 2, "Witamy w: Karczma 'Pod Zlamanym Toporem'");
-    mvwprintw(win, 2, 2, "Adres: Trakt Krolewski 7");
-    mvwprintw(win, 3, 2, "Wlasciciel: Brodaty Krasnolud");
-    mvwprintw(win, 5, 2, "Wcisnij 1: zamowic na miejscu");
-    mvwprintw(win, 6, 2, "Wcisnij 2: zamowic na wynos");
-    mvwprintw(win, 8, 2, "Twoj wybor (1/2): ");
-    wrefresh(win);
-
-    int del;
-    echo();
-    mvwscanw(win, 8, 19, "%d", &del);
-    noecho();
-    delwin(win);
-    return del;
-}
-
-string delivery(){
-    int h = 10, w = 50;
-    int starty = (LINES - h) / 2; 
-    int startx = (COLS  - w) / 2;
-
-    WINDOW *win = newwin(h, w, starty, startx);
-    box(win, 0, 0);
-    mvwprintw(win, 1, 2, "Prosze podac swoj adres ponizej");
-    mvwprintw(win, 2, 2, ":");
-
-    char cust_adres[100] = {0};
-    echo();
-    mvwgetnstr(win, 2, 3, cust_adres, 99);
-    noecho();
-    delwin(win);
-    return string(cust_adres); 
-}
-
-int table(){
-    int h = 10, w = 50;
-    int starty = (LINES - h) / 2; 
-    int startx = (COLS  - w) / 2;
     
-    WINDOW *win = newwin(h, w, starty, startx);
-    box(win, 0, 0);
-    mvwprintw(win, 1, 2, "Prosze podac numer stolika: ");
-    mvwprintw(win, 2, 2, ":");
-
-    int tab;
-    echo();
-    mvwscanw(win, 2, 3, "%d", &tab);
-    noecho();
-    delwin(win);
-    return tab;
+    // Pobierz aktualny czas
+    time_t teraz = time(NULL);
+    struct tm* czas = localtime(&teraz);
+    int aktualna_godzina = czas->tm_hour;
+    int aktualna_minuta = czas->tm_min;
+    
+    printf("\nAktualna godzina: %02d:%02d\n", aktualna_godzina, aktualna_minuta);
+    printf("Dostawy realizujemy w godzinach %d:00 - %d:00\n", GODZINA_OTWARCIA, GODZINA_ZAMKNIECIA);
+    printf("Minimalny czas dostawy: 30 minut od teraz\n\n");
+    
+    // Oblicz minimalna godzine dostawy
+    int min_godzina = aktualna_godzina;
+    int min_minuta = aktualna_minuta + 30;
+    if (min_minuta >= 60) {
+        min_minuta -= 60;
+        min_godzina++;
+    }
+    
+    // Sprawdz czy jeszcze mozna zamowic
+    if (min_godzina >= GODZINA_ZAMKNIECIA) {
+        printf("BLAD: Niestety, jest juz za pozno na zamowienie dostawy.\n");
+        printf("Zapraszamy jutro od %d:00!\n", GODZINA_OTWARCIA);
+        exit(0);
+    }
+    
+    if (min_godzina < GODZINA_OTWARCIA) {
+        min_godzina = GODZINA_OTWARCIA;
+        min_minuta = 0;
+    }
+    
+    printf("Podaj godzine dostawy (%d-%d): ", min_godzina, GODZINA_ZAMKNIECIA - 1);
+    godzina_dostawy = wczytajLiczbe(min_godzina, GODZINA_ZAMKNIECIA - 1);
+    
+    printf("Podaj minute dostawy (0-59): ");
+    
+    // Dla minimalnej godziny sprawdz minuty
+    if (godzina_dostawy == min_godzina) {
+        minuta_dostawy = wczytajLiczbe(min_minuta, 59);
+    } else {
+        minuta_dostawy = wczytajLiczbe(0, 59);
+    }
+    
+    printf("\nDostawa na adres: %s\n", adres_dostawy);
+    printf("Planowana godzina: %02d:%02d\n", godzina_dostawy, minuta_dostawy);
 }
 
-int take_order() {
-    int h = 12, w = 60;
-    int starty = (LINES - h) / 2; 
-    int startx = (COLS - w) / 2;
-    WINDOW *win = newwin(h, w, starty, startx);
-    box(win, 0, 0);
-
-    mvwprintw(win, 1, 2, "=== MENU KARCZMY ===");
+// Wyswietlenie menu
+void wyswietlMenu() {
+    printf("\n╔════════════════════════════════════════════════════════════╗\n");
+    printf("║                    MENU KARCZMY                           ║\n");
+    printf("╠════════════════════════════════════════════════════════════╣\n");
+    
     for (int i = 0; i < liczba_dan; i++) {
-        mvwprintw(win, 2 + i, 2, "%d) %s (%.2f zl)", 
-                  menu[i].id, menu[i].nazwa, menu[i].cena);
+        printf("║ %d. %-25s %8.2f zl                ║\n", 
+               menu[i].id, menu[i].nazwa, menu[i].cena);
+        printf("║    Skladniki: %-43s║\n", menu[i].skladniki);
+        printf("╠════════════════════════════════════════════════════════════╣\n");
     }
-    mvwprintw(win, 10, 2, "9) Edytuj  0) Dalej (Suma: %.2f zl)", suma_rachunku);
-    wrefresh(win);
-
-    int meal;
-    echo();
-    mvwscanw(win, 11, 2, "%d", &meal);
-    noecho();
-    delwin(win);
-    return meal;
+    
+    printf("╚════════════════════════════════════════════════════════════╝\n");
 }
 
-void edit_order() {
-    int h = 15, w = 70;
-    int starty = (LINES - h) / 2; 
-    int startx = (COLS - w) / 2;
-    WINDOW *win = newwin(h, w, starty, startx);
-    box(win, 0, 0);
-
-    mvwprintw(win, 1, 2, "=== EDYCJA ZAMOWIENIA ===");
-    mvwprintw(win, 2, 2, "Aktualna suma: %.2f zl", suma_rachunku);
-    mvwprintw(win, 4, 2, "1) Usun ostatnie danie");
-    mvwprintw(win, 5, 2, "2) Zmien stolik (jezeli na miejscu)");
-    mvwprintw(win, 6, 2, "3) Wyczysc zamowienie");
-    mvwprintw(win, 8, 2, "0) Wroc do menu");
-    mvwprintw(win, 9, 2, "Wybierz (0-3): ");
-    wrefresh(win);
-
-    int opcja;
-    echo();
-    mvwscanw(win, 9, 19, "%d", &opcja);
-    noecho();
+// Wyswietlenie aktualnego zamowienia
+void wyswietlZamowienie() {
+    if (liczba_pozycji == 0) {
+        printf("\n[Twoje zamowienie jest puste]\n");
+        return;
+    }
     
-    if (opcja == 1) {
-        if (liczba_dan > 0) {
-            suma_rachunku -= menu[liczba_dan - 1].cena;
-            mvwprintw(win, 11, 2, "Usunieto ostatnie!");
-        } else {
-            mvwprintw(win, 11, 2, "Puste zamowienie!");
+    printf("\n--- TWOJE ZAMOWIENIE ---\n");
+    for (int i = 0; i < liczba_pozycji; i++) {
+        printf("%d. %s x%d = %.2f zl\n", 
+               i + 1,
+               zamowienie[i].nazwa, 
+               zamowienie[i].ilosc, 
+               zamowienie[i].cena * zamowienie[i].ilosc);
+    }
+    printf("------------------------\n");
+    printf("SUMA: %.2f zl\n", suma_rachunku);
+    printf("------------------------\n");
+}
+
+// Dodanie dania do zamowienia
+void dodajDanie() {
+    wyswietlMenu();
+    
+    printf("\nPodaj numer dania (1-%d) lub 0 aby wrocic: ", liczba_dan);
+    int wybor = wczytajLiczbe(0, liczba_dan);
+    
+    if (wybor == 0) return;
+    
+    // Znajdz danie
+    int indeks = -1;
+    for (int i = 0; i < liczba_dan; i++) {
+        if (menu[i].id == wybor) {
+            indeks = i;
+            break;
         }
-    } else if (opcja == 2) {
-        stolik = table();
-        mvwprintw(win, 11, 2, "Nowy stolik zapisany!");
-    } else if (opcja == 3) {
-        suma_rachunku = 0.0;
-        mvwprintw(win, 11, 2, "Wyczyszczono wszystko!");
     }
     
-    wrefresh(win);
-    mvwprintw(win, 13, 2, "Nacisnij klawisz...");
-    wrefresh(win);
-    getch();
-    delwin(win);
-}
-
-void handle_order_choice(int choice) {
-    for (int i = 0; i < liczba_dan; i++) {
-        if (menu[i].id == choice) {
-            suma_rachunku += menu[i].cena;
+    if (indeks == -1) {
+        printf("Nie znaleziono dania o numerze %d!\n", wybor);
+        return;
+    }
+    
+    printf("Ile porcji '%s'? (1-10): ", menu[indeks].nazwa);
+    int ilosc = wczytajLiczbe(1, 10);
+    
+    // Sprawdz czy danie juz jest w zamowieniu
+    for (int i = 0; i < liczba_pozycji; i++) {
+        if (zamowienie[i].id_dania == menu[indeks].id) {
+            zamowienie[i].ilosc += ilosc;
+            suma_rachunku += menu[indeks].cena * ilosc;
+            printf("Dodano %d porcji '%s'. Teraz masz %d porcji tego dania.\n", 
+                   ilosc, menu[indeks].nazwa, zamowienie[i].ilosc);
             return;
         }
     }
-    if (choice == 9) {
-        edit_order();
-    }
-}
-
-#else
-// ===== CONSOLE FALLBACK VERSION (Windows) =====
-int welcome_screen(){
-    printf("\n=== Karczma 'Pod Zlamanym Toporem' ===\n");
-    printf("Adres: Trakt Krolewski 7\n");
-    printf("Wlasciciel: Brodaty Krasnolud\n\n");
-    printf("1: zamowic na miejscu\n");
-    printf("2: zamowic na wynos\n\n");
-    printf("Twoj wybor (1/2): ");
-    int d = 0; 
-    scanf("%d", &d);
-    getchar(); // consume newline
-    return d;
-}
-
-string delivery(){
-    char buf[200] = {0};
-    printf("Prosze podac swoj adres: ");
-    fgets(buf, sizeof(buf), stdin);
-    string s(buf);
-    if (!s.empty() && s.back() == '\n') s.pop_back();
-    if (!s.empty() && s.back() == '\r') s.pop_back();
-    return s;
-}
-
-int table(){
-    printf("Prosze podac numer stolika: ");
-    int t = 0; 
-    scanf("%d", &t);
-    getchar(); // consume newline
-    return t;
-}
-
-int take_order() {
-    printf("\n=== MENU KARCZMY ===\n");
-    for (int i = 0; i < liczba_dan; i++) {
-        printf("%d) %s (%.2f zl)\n", menu[i].id, menu[i].nazwa, menu[i].cena);
-    }
-    printf("9) Edytuj  0) Dalej (Suma: %.2f zl)\n\n", suma_rachunku);
-    printf("Wybor: ");
-    int meal = 0; 
-    scanf("%d", &meal);
-    getchar(); // consume newline
-    return meal;
-}
-
-void edit_order() {
-    printf("\n=== EDYCJA ZAMOWIENIA ===\n");
-    printf("Aktualna suma: %.2f zl\n", suma_rachunku);
-    printf("1) Usun ostatnie danie\n");
-    printf("2) Zmien stolik (jezeli na miejscu)\n");
-    printf("3) Wyczysc zamowienie\n");
-    printf("0) Wroc do menu\n\n");
-    printf("Wybierz (0-3): ");
-    int opcja = 0; 
-    scanf("%d", &opcja);
-    getchar();
     
-    if (opcja == 1) {
-        if (liczba_dan > 0) suma_rachunku -= menu[liczba_dan - 1].cena;
-        printf("Usunieto ostatnie!\n");
-    } else if (opcja == 2) {
-        stolik = table();
-        printf("Nowy stolik zapisany!\n");
-    } else if (opcja == 3) {
-        suma_rachunku = 0.0;
-        printf("Wyczyszczono wszystko!\n");
+    // Dodaj nowa pozycje
+    if (liczba_pozycji < MAKS_ZAMOWIEN) {
+        zamowienie[liczba_pozycji].id_dania = menu[indeks].id;
+        strcpy(zamowienie[liczba_pozycji].nazwa, menu[indeks].nazwa);
+        zamowienie[liczba_pozycji].cena = menu[indeks].cena;
+        zamowienie[liczba_pozycji].ilosc = ilosc;
+        liczba_pozycji++;
+        suma_rachunku += menu[indeks].cena * ilosc;
+        
+        printf("Dodano: %s x%d (%.2f zl)\n", 
+               menu[indeks].nazwa, ilosc, menu[indeks].cena * ilosc);
+    } else {
+        printf("Zamowienie jest pelne!\n");
     }
-    printf("Nacisnij Enter...\n");
-    getchar();
 }
 
-void handle_order_choice(int choice) {
-    for (int i = 0; i < liczba_dan; i++) {
-        if (menu[i].id == choice) {
-            suma_rachunku += menu[i].cena;
-            return;
+// Usuniecie pozycji z zamowienia
+void usunPozycje() {
+    if (liczba_pozycji == 0) {
+        printf("\nZamowienie jest puste - nie ma czego usuwac!\n");
+        return;
+    }
+    
+    wyswietlZamowienie();
+    
+    printf("\nKtora pozycje usunac? (1-%d) lub 0 aby wrocic: ", liczba_pozycji);
+    int wybor = wczytajLiczbe(0, liczba_pozycji);
+    
+    if (wybor == 0) return;
+    
+    int indeks = wybor - 1;
+    
+    // Odejmij od sumy
+    suma_rachunku -= zamowienie[indeks].cena * zamowienie[indeks].ilosc;
+    
+    printf("Usunieto: %s\n", zamowienie[indeks].nazwa);
+    
+    // Przesun pozostale pozycje
+    for (int i = indeks; i < liczba_pozycji - 1; i++) {
+        zamowienie[i] = zamowienie[i + 1];
+    }
+    liczba_pozycji--;
+}
+
+// Glowne menu zamawiania
+int menuZamawiania() {
+    while (1) {
+        printf("\n========================================\n");
+        printf("Co chcesz zrobic?\n");
+        printf("1 - Dodaj danie do zamowienia\n");
+        printf("2 - Usun pozycje z zamowienia\n");
+        printf("3 - Zobacz aktualne zamowienie\n");
+        printf("4 - Potwierdz zamowienie\n");
+        printf("0 - Anuluj i wyjdz\n");
+        printf("========================================\n");
+        printf("Wybor: ");
+        
+        int wybor = wczytajLiczbe(0, 4);
+        
+        switch (wybor) {
+            case 0:
+                printf("\nZamowienie anulowane. Do zobaczenia!\n");
+                return 0;
+            case 1:
+                dodajDanie();
+                break;
+            case 2:
+                usunPozycje();
+                break;
+            case 3:
+                wyswietlZamowienie();
+                break;
+            case 4:
+                if (liczba_pozycji == 0) {
+                    printf("\nMusisz zamowic co najmniej 1 danie!\n");
+                } else {
+                    return 1;  // Potwierdzone
+                }
+                break;
         }
     }
-    if (choice == 9) {
-        edit_order();
-    }
 }
-#endif
 
+// Zapisanie rachunku do pliku
+void zapiszRachunek() {
+    // Utworz nazwe pliku z czasem
+    time_t teraz = time(NULL);
+    struct tm* czas = localtime(&teraz);
+    
+    char nazwa_pliku[100];
+    sprintf(nazwa_pliku, "rachunek_%04d%02d%02d_%02d%02d%02d.txt",
+            czas->tm_year + 1900, czas->tm_mon + 1, czas->tm_mday,
+            czas->tm_hour, czas->tm_min, czas->tm_sec);
+    
+    FILE* plik = fopen(nazwa_pliku, "w");
+    
+    if (plik == NULL) {
+        printf("BLAD: Nie mozna zapisac rachunku do pliku!\n");
+        return;
+    }
+    
+    fprintf(plik, "╔════════════════════════════════════════════════════════════╗\n");
+    fprintf(plik, "║           KARCZMA 'POD ZLAMANYM TOPOREM'                  ║\n");
+    fprintf(plik, "║                    RACHUNEK                               ║\n");
+    fprintf(plik, "╚════════════════════════════════════════════════════════════╝\n\n");
+    
+    fprintf(plik, "Data: %04d-%02d-%02d %02d:%02d\n",
+            czas->tm_year + 1900, czas->tm_mon + 1, czas->tm_mday,
+            czas->tm_hour, czas->tm_min);
+    fprintf(plik, "Klient: %s\n", imie_klienta);
+    
+    if (typ_zamowienia == 1) {
+        fprintf(plik, "Typ: Na miejscu, stolik nr %d\n", numer_stolika);
+    } else {
+        fprintf(plik, "Typ: Dowoz\n");
+        fprintf(plik, "Adres: %s\n", adres_dostawy);
+        fprintf(plik, "Godzina dostawy: %02d:%02d\n", godzina_dostawy, minuta_dostawy);
+    }
+    
+    fprintf(plik, "\n--- ZAMOWIONE DANIA ---\n");
+    
+    for (int i = 0; i < liczba_pozycji; i++) {
+        fprintf(plik, "%d. %-25s x%d  %8.2f zl\n",
+                i + 1,
+                zamowienie[i].nazwa,
+                zamowienie[i].ilosc,
+                zamowienie[i].cena * zamowienie[i].ilosc);
+    }
+    
+    fprintf(plik, "\n---------------------------\n");
+    fprintf(plik, "SUMA DO ZAPLATY: %.2f zl\n", suma_rachunku);
+    fprintf(plik, "---------------------------\n");
+    
+    fprintf(plik, "\nDziekujemy za zamowienie!\n");
+    fprintf(plik, "Zapraszamy ponownie!\n");
+    
+    fclose(plik);
+    
+    printf("\nRachunek zapisano do pliku: %s\n", nazwa_pliku);
+}
+
+// Wyswietlenie podsumowania
+void wyswietlPodsumowanie() {
+    printf("\n");
+    printf("╔════════════════════════════════════════════════════════════╗\n");
+    printf("║              PODSUMOWANIE ZAMOWIENIA                      ║\n");
+    printf("╚════════════════════════════════════════════════════════════╝\n\n");
+    
+    printf("Klient: %s\n", imie_klienta);
+    
+    if (typ_zamowienia == 1) {
+        printf("Zamowienie: Na miejscu, stolik nr %d\n", numer_stolika);
+        printf("Szacowany czas przygotowania: 15-25 minut\n");
+    } else {
+        printf("Zamowienie: Dowoz\n");
+        printf("Adres dostawy: %s\n", adres_dostawy);
+        printf("Planowana godzina dostawy: %02d:%02d\n", godzina_dostawy, minuta_dostawy);
+    }
+    
+    printf("\n--- ZAMOWIONE DANIA ---\n");
+    for (int i = 0; i < liczba_pozycji; i++) {
+        printf("%d. %s x%d = %.2f zl\n",
+               i + 1,
+               zamowienie[i].nazwa,
+               zamowienie[i].ilosc,
+               zamowienie[i].cena * zamowienie[i].ilosc);
+    }
+    
+    printf("\n========================================\n");
+    printf("   SUMA DO ZAPLATY: %.2f zl\n", suma_rachunku);
+    printf("========================================\n");
+    
+    printf("\nDziekujemy za zamowienie, %s!\n", imie_klienta);
+    printf("Smacznego!\n");
+}
+
+// Funkcja glowna
 int main() {
-#ifndef NO_NCURSES
-    initscr();
-    cbreak();
-    noecho();
+#ifdef _WIN32
+    ustawKonsole();
 #endif
 
-    load_menu("menu.txt");
-
-    int wybor = welcome_screen();
-    string adres;
-    
-    if (wybor == 2) {
-        adres = delivery();
-    } else {
-        stolik = table();
+    // Wczytaj menu z pliku
+    if (!wczytajMenu("menu.txt")) {
+        printf("Nacisnij Enter aby zakonczyc...\n");
+        getchar();
+        return 1;
     }
-
-    int meal;
-    do {
-        meal = take_order();
-        handle_order_choice(meal);
-    } while (meal != 0);
-
-#ifndef NO_NCURSES
-    endwin();
-#endif
     
-    printf("\n=== RACHUNEK ===\n");
-    printf("Suma: %.2f zl\n", suma_rachunku);
-    if (wybor == 2) {
-        printf("Dostawa na: %s\n", adres.c_str());
+    // Wyswietl dane restauracji
+    wyswietlDaneRestauracji();
+    
+    // Pobierz imie klienta
+    pobierzImie();
+    
+    // Wybor typu zamowienia
+    wybierzTypZamowienia();
+    
+    // Pobierz dane w zaleznosci od typu
+    if (typ_zamowienia == 1) {
+        pobierzStolik();
     } else {
-        printf("Stolik nr: %d\n", stolik);
+        pobierzDaneDostawy();
     }
-    printf("Nacisnij Enter...\n");
+    
+    // Menu zamawiania
+    int potwierdzone = menuZamawiania();
+    
+    if (potwierdzone) {
+        // Zapisz rachunek do pliku
+        zapiszRachunek();
+        
+        // Wyswietl podsumowanie
+        wyswietlPodsumowanie();
+    }
+    
+    // Czekaj na klawisz
+    printf("\nNacisnij Enter aby zakonczyc...\n");
     getchar();
     
     return 0;

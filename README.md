@@ -1,126 +1,76 @@
-<<<<<<< HEAD
-# Restauracja
-Żeby skompilować użyj komendy ``g++ -std=c++20 template.cpp -lncurses -o main``
-=======
 # Karczma "Pod Złamanym Toporem" - System Zamówień
 
-Aplikacja restauracyjna z interfejsem tekstowym, obsługująca zamówienia na miejscu i dostawę.
+Aplikacja konsolowa do zarządzania zamówieniami w karczmie fantasy.
+Projekt na pierwszy semestr studiów informatycznych.
 
 ## Wymagania
 
-### Linux/macOS (z interfejsem ncurses)
-- C++ compiler (gcc, clang)
-- ncurses development library
-- CMake (opcjonalnie)
-
-### Windows (tryb konsolowy)
-- C++ compiler (MSVC, gcc, clang)
-- CMake (opcjonalnie)
-
-## Instalacja zależności
-
-### Debian/Ubuntu
-```bash
-sudo apt-get install build-essential cmake libncurses-dev
-```
-
-### macOS (homebrew)
-```bash
-brew install cmake ncurses
-```
-
-### Windows
-- Zainstaluj Visual Studio Build Tools lub MinGW
-- Zainstaluj CMake ze strony https://cmake.org
+- Windows 10/11
+- Visual Studio 2022 (lub nowszy)
+- CMake 3.16+
 
 ## Kompilacja
 
-### Metoda 1: CMake (Rekomendowane)
-
-#### Linux/macOS
 ```bash
 mkdir build
 cd build
 cmake ..
-make
-./restauracja
-```
-
-#### Windows (MSVC)
-```bash
-mkdir build
-cd build
-cmake .. -G "Visual Studio 16 2019"
 cmake --build . --config Release
-.\Release\restauracja.exe
 ```
 
-#### Windows (MinGW)
+## Uruchomienie
+
 ```bash
-mkdir build
-cd build
-cmake .. -G "MinGW Makefiles"
-make
+cd build/Release
 restauracja.exe
 ```
 
-### Metoda 2: Kompilacja ręczna
+## Funkcje aplikacji
 
-#### Linux/macOS (z ncurses)
-```bash
-g++ -std=c++11 main.cpp -o restauracja -lncurses
-./restauracja
+### 1. Podanie danych wstępnych
+- Wyświetlanie danych restauracji (nazwa, adres, właściciel)
+- Podanie imienia klienta
+- Wybór: na miejscu lub dowóz
+- Na miejscu → numer stolika (1-15)
+- Dowóz → adres + godzina dostawy (z kontrolą zakresu)
+
+### 2. Wybór dań z menu
+- Menu wczytywane z pliku `menu.txt`
+- Każda pozycja ma: nazwę, cenę, składniki
+- Można zamówić dowolną liczbę porcji (1-10)
+- Można usunąć pozycję z zamówienia
+- Suma jest aktualizowana po każdej zmianie
+- Minimum 1 danie do złożenia zamówienia
+- Można wyjść w dowolnym momencie
+
+### 3. Podsumowanie zamówienia
+- Wyświetlenie czasu dostawy/przygotowania
+- Zapis rachunku do pliku `.txt`
+- Zamknięcie aplikacji po naciśnięciu Enter
+
+## Format pliku menu.txt
+
+```
+ID:Nazwa:Cena:Składniki
 ```
 
-#### Linux/macOS (bez ncurses - tryb konsolowy)
-```bash
-g++ -std=c++11 -DNO_NCURSES main.cpp -o restauracja
-./restauracja
+Przykład:
 ```
-
-#### Windows (MSVC)
-```bash
-cl /std:c++11 /D NO_NCURSES main.cpp
-restauracja.exe
-```
-
-#### Windows (MinGW)
-```bash
-g++ -std=c++11 -DNO_NCURSES main.cpp -o restauracja.exe
-restauracja.exe
-```
-
-## Uruchamianie
-
-Upewnij się, że plik `menu.txt` znajduje się w tym samym katalogu co aplikacja:
-
-```bash
-./restauracja    # Linux/macOS
-restauracja.exe  # Windows
+1:Pierog z miesem:12.50:ciasto, mieso wolowe, cebula, przyprawy
+2:Zupa grzybowa:8.00:grzyby lesne, smietana, ziemniaki
 ```
 
 ## Struktura projektu
 
 ```
-.
-├── CMakeLists.txt      # Konfiguracja CMake dla kompilacji wieloplatformowej
-├── main.cpp            # Główny kod aplikacji z warunkową kompilacją ncurses
-├── menu.txt            # Plik z menu restauracji
-└── README.md           # Dokumentacja
+Restauracja/
+├── main.cpp        # Kod źródłowy aplikacji
+├── menu.txt        # Plik z menu karczmy
+├── CMakeLists.txt  # Konfiguracja CMake
+├── README.md       # Ten plik
+└── build/          # Folder z kompilacją
 ```
 
-## Funkcjonalność
+## Autor
 
-- Zamówienia na miejscu (ze wskazaniem numeru stolika)
-- Zamówienia z dostawą na adres
-- Edycja zamówienia (usuwanie dań, czyszczenie koszyka)
-- Rachunek podsumowujący zamówienie
-- Interfejs tekstowy ncurses (Linux/macOS) lub konsolowy (Windows)
-
-## Obsługa wieloplatformowa
-
-Aplikacja automatycznie:
-- **Na Linux/macOS**: Używa biblioteki ncurses dla lepszego interfejsu tekstowego
-- **Na Windows**: Przechodzi w tryb konsolowy (brak ncurses)
-- **Bez ncurses na dowolnej platformie**: Uruchom z flagą `-DNO_NCURSES`
->>>>>>> 9410edf (Windows fix)
+Projekt studencki - 1 semestr informatyki.

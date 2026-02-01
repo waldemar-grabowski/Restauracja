@@ -1,10 +1,11 @@
 # Binaries
 restauracja
 restauracja.exe
-main
 *.out
 *.a
 *.so
+*.obj
+*.exe
 
 # Build directories
 build/
@@ -14,13 +15,19 @@ cmake_install.cmake
 CMakeCache.txt
 Makefile
 
-# IDE
+# IDE / Visual Studio
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
 *~
+*.user
+*.suo
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Rachunki (generowane przez aplikację)
+rachunek_*.txt

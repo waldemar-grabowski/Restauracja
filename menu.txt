@@ -1,5 +1,10 @@
-1:Pieróg z mięsem:5.50:mięso,cebula,ciasto
-2:Zupa grzybowa:4.00:grzyby,śmietana,ziemniaki
-3:Schabowy:12.00:schab,panierka,ziemniaki
-4:Placki ziemniaczane:8.50:ziemniaki,cebula,śmietana
-5:Piernik:3.00:mąka,miód,przyprawy
+1:Pierog z miesem:12.50:ciasto, mieso wolowe, cebula, przyprawy
+2:Zupa grzybowa:8.00:grzyby lesne, smietana, ziemniaki, koperek
+3:Schabowy z frytkami:25.00:wieprzowina, jajko, bulka tarta, ziemniaki
+4:Pieczony kurczak:22.00:kurczak, czosnek, ziola, maslo
+5:Golonka piwna:35.00:golonka, piwo, cebula, chrzan, musztarda
+6:Bigos staropolski:18.00:kapusta, kielbasa, boczek, grzyby, sliwki
+7:Zurek w chlebie:15.00:zakwas, kielbasa, jajko, chleb
+8:Pierogi ruskie:14.00:ciasto, ziemniaki, twarog, cebula
+9:Kompot z suszu:5.00:suszone owoce, cukier, cynamon
+10:Miod pitny:12.00:miod, woda, drozdze, ziola
