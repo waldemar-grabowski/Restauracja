@@ -65,28 +65,21 @@ void wczytajMenu() {
     }
 
     string linia;
-    int numerLinii = 0; // Pomaga zidentyfikować, gdzie jest błąd
+    int numerLinii = 0;
 
     while (getline(f, linia) && liczba_dan < MAKS_DAN) {
         numerLinii++;
-
-        // 1. Szukamy pozycji separatorów
         size_t p1 = linia.find(':');
         size_t p2 = linia.find(':', p1 + 1);
 
-        // Sprawdzenie, czy format linii jest poprawny (czy są minimum dwa dwukropki)
         if (p1 == string::npos || p2 == string::npos) {
             cout << "Blad w linii " << numerLinii << ": Nieprawidlowy format (brak dwukropka). Pomijam...\n";
             continue;
         }
 
         try {
-            // 2. Wycinanie danych
             string nazwa = linia.substr(p1 + 1, p2 - p1 - 1);
             string cenaStr = linia.substr(p2 + 1);
-
-            // Konwersja ceny na double
-            // stod moze wyrzucic wyjatek, jesli po drugim dwukropku nie ma liczby
             ceny[liczba_dan] = stod(cenaStr);
             nazwy[liczba_dan] = nazwa;
 
