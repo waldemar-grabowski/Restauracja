@@ -57,21 +57,47 @@ int wczytajLiczbe(int min, int max) {
 }
 
 // Wczytuje menu z pliku
-int wczytajMenu() {
-    FILE* f = fopen("menu.txt", "r");
+void wczytajMenu() {
+    ifstream f("menu.txt");
     if (!f) {
-        printf("Blad: nie mozna otworzyc menu.txt!\n");
-        return 0;
+        cout << "Blad: Nie mozna otworzyc pliku menu.txt\n";
+        return;
     }
-    
-    int id;
-    while (fscanf(f, "%d:%49[^:]:%lf:%99[^\n]\n", &id, nazwy[liczba_dan], 
-                  &ceny[liczba_dan], skladniki[liczba_dan]) == 4) {
-        liczba_dan++;
-        if (liczba_dan >= MAKS_DAN) break;
+
+    string linia;
+    int numerLinii = 0; // Pomaga zidentyfikować, gdzie jest błąd
+
+    while (getline(f, linia) && liczba_dan < MAKS_DAN) {
+        numerLinii++;
+
+        // 1. Szukamy pozycji separatorów
+        size_t p1 = linia.find(':');
+        size_t p2 = linia.find(':', p1 + 1);
+
+        // Sprawdzenie, czy format linii jest poprawny (czy są minimum dwa dwukropki)
+        if (p1 == string::npos || p2 == string::npos) {
+            cout << "Blad w linii " << numerLinii << ": Nieprawidlowy format (brak dwukropka). Pomijam...\n";
+            continue;
+        }
+
+        try {
+            // 2. Wycinanie danych
+            string nazwa = linia.substr(p1 + 1, p2 - p1 - 1);
+            string cenaStr = linia.substr(p2 + 1);
+
+            // Konwersja ceny na double
+            // stod moze wyrzucic wyjatek, jesli po drugim dwukropku nie ma liczby
+            ceny[liczba_dan] = stod(cenaStr);
+            nazwy[liczba_dan] = nazwa;
+
+            liczba_dan++;
+        }
+        catch (...) {
+            cout << "Blad w linii " << numerLinii << ": Niepoprawny format ceny. Pomijam...\n";
+            continue;
+        }
     }
-    fclose(f);
-    return liczba_dan > 0;
+    f.close();
 }
 
 // Wyswietla dane karczmy
